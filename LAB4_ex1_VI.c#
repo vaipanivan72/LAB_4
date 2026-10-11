@@ -1,0 +1,275 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Text;
+
+namespace LAB4_ex1
+{
+    // Клас для зберігання інформації про виробництво
+    class Production
+    {
+        public string Month { get; set; }
+        public double Plan { get; set; }
+        public double Actual { get; set; }
+
+        public Production(string month, double plan, double actual)
+        {
+            if (string.IsNullOrWhiteSpace(month))
+                throw new ArgumentException(
+                    "Назва місяця не може бути порожньою.");
+
+            if (plan < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(plan), "План не може бути від'ємним.");
+
+            if (actual < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(actual), "Фактичний випуск не може бути від'ємним.");
+
+            Month = month;
+            Plan = plan;
+            Actual = actual;
+        }
+
+        // Перевірка недовиконання плану
+        public bool IsPlanUnderfulfilled()
+        {
+            return Actual < Plan;
+        }
+
+        // Визначення величини недовиконання
+        public double GetUnderfulfillment()
+        {
+            if (IsPlanUnderfulfilled())
+                return Plan - Actual;
+
+            return 0;
+        }
+    }
+
+    class Program
+    {
+        // Введення числа з перевіркою помилок
+        static double ReadNumber(string message)
+        {
+            while (true)
+            {
+                Console.Write(message);
+                string input = Console.ReadLine() ?? "";
+
+                try
+                {
+                    double number = double.Parse(
+                        input.Replace(',', '.'),
+                        CultureInfo.InvariantCulture);
+
+                    if (double.IsNaN(number) ||
+                        double.IsInfinity(number))
+                    {
+                        throw new FormatException(
+                            "Число має бути скінченним.");
+                    }
+
+                    if (number < 0)
+                    {
+                        throw new ArgumentOutOfRangeException(
+                            nameof(number),
+                            "Число не може бути від'ємним.");
+                    }
+
+                    return number;
+                }
+                catch (FormatException)
+                {
+                    Console.WriteLine(
+                        "Помилка! Введіть коректне число.");
+                }
+                catch (ArgumentOutOfRangeException ex)
+                {
+                    Console.WriteLine("Помилка! " + ex.Message);
+                }
+                catch (OverflowException)
+                {
+                    Console.WriteLine(
+                        "Помилка! Число занадто велике.");
+                }
+            }
+        }
+
+        // Готові дані за 12 місяців
+        static List<Production> CreateDefaultData()
+        {
+            return new List<Production>
+            {
+                new Production("Січень",   1000,  950),
+                new Production("Лютий",    1100, 1150),
+                new Production("Березень", 1200, 1180),
+                new Production("Квітень",  1250, 1300),
+                new Production("Травень",  1300, 1200),
+                new Production("Червень",  1400, 1400),
+                new Production("Липень",   1350, 1280),
+                new Production("Серпень",  1450, 1500),
+                new Production("Вересень", 1500, 1420),
+                new Production("Жовтень",  1550, 1600),
+                new Production("Листопад", 1600, 1500),
+                new Production("Грудень",  1700, 1650)
+            };
+        }
+
+        // Введення власних даних
+        static List<Production> ReadOwnData()
+        {
+            string[] months =
+            {
+                "Січень", "Лютий", "Березень", "Квітень",
+                "Травень", "Червень", "Липень", "Серпень",
+                "Вересень", "Жовтень", "Листопад", "Грудень"
+            };
+
+            List<Production> records = new List<Production>();
+
+            foreach (string month in months)
+            {
+                Console.WriteLine("\nМісяць: " + month);
+
+                double plan = ReadNumber(
+                    "План випуску продукції: ");
+
+                double actual = ReadNumber(
+                    "Фактичний випуск продукції: ");
+
+                records.Add(new Production(month, plan, actual));
+            }
+
+            return records;
+        }
+
+        // Виведення загальної таблиці з недовиконанням
+        static void PrintTable(List<Production> records)
+        {
+            Console.WriteLine("\n=== РЕЗУЛЬТАТИ ВИРОБНИЦТВА ===");
+
+            Console.WriteLine(
+                "-------------------------------------------------------------------------------");
+
+            Console.WriteLine(
+                "{0,-13} | {1,12} | {2,18} | {3,16}",
+                "Місяць", "План", "Фактичний випуск", "Недовиконання");
+
+            Console.WriteLine(
+                "-------------------------------------------------------------------------------");
+
+            foreach (Production item in records)
+            {
+                Console.WriteLine(
+                    "{0,-13} | {1,12:F2} | {2,18:F2} | {3,16:F2}",
+                    item.Month,
+                    item.Plan,
+                    item.Actual,
+                    item.GetUnderfulfillment());
+            }
+
+            Console.WriteLine(
+                "-------------------------------------------------------------------------------");
+
+            // Визначення назв місяців із недовиконанням
+            Console.WriteLine("\nМісяці з недовиконанням плану:");
+
+            bool found = false;
+
+            foreach (Production item in records)
+            {
+                if (item.IsPlanUnderfulfilled())
+                {
+                    Console.Write(item.Month + "  ");
+                    found = true;
+                }
+            }
+
+            if (!found)
+            {
+                Console.Write("Недовиконання плану немає.");
+            }
+
+            Console.WriteLine();
+        }
+
+        // Головне меню
+        static void Main(string[] args)
+        {
+            Console.OutputEncoding = Encoding.UTF8;
+            Console.InputEncoding = Encoding.UTF8;
+
+            bool running = true;
+
+            while (running)
+            {
+                Console.WriteLine();
+                Console.WriteLine(
+                    "==============================================");
+                Console.WriteLine(
+                    "   БАЗА ДАНИХ ВИРОБНИЦТВА ПІДПРИЄМСТВА");
+                Console.WriteLine(
+                    "==============================================");
+                Console.WriteLine("1 - Використати готові дані");
+                Console.WriteLine("2 - Ввести власні дані");
+                Console.WriteLine("0 - Вихід");
+                Console.Write("Ваш вибір: ");
+
+                string choice = Console.ReadLine() ?? "";
+
+                try
+                {
+                    switch (choice)
+                    {
+                        case "1":
+                            {
+                                List<Production> records =
+                                    CreateDefaultData();
+
+                                PrintTable(records);
+                                break;
+                            }
+
+                        case "2":
+                            {
+                                List<Production> records =
+                                    ReadOwnData();
+
+                                PrintTable(records);
+                                break;
+                            }
+
+                        case "0":
+                            {
+                                running = false;
+                                Console.WriteLine(
+                                    "Програму завершено.");
+                                continue;
+                            }
+
+                        default:
+                            {
+                                Console.WriteLine(
+                                    "Помилка! Виберіть 0, 1 або 2.");
+                                continue;
+                            }
+                    }
+                }
+                catch (ArgumentException ex)
+                {
+                    Console.WriteLine(
+                        "Помилка даних: " + ex.Message);
+                }
+
+                if (running)
+                {
+                    Console.WriteLine();
+                    Console.WriteLine(
+                        "Натисніть Enter, щоб повернутися до меню...");
+                    Console.ReadLine();
+                }
+            }
+        }
+    }
+}

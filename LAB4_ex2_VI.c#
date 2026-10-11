@@ -1,0 +1,507 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Text;
+
+namespace LAB4_Task2
+{
+    class CompactDisc
+    {
+        private int inventoryNumber;
+        private string albumTitle;
+        private double diskSize;
+        private string diskType;
+        private DateTime recordingDate;
+
+        public int InventoryNumber
+        {
+            get { return inventoryNumber; }
+            set
+            {
+                if (value <= 0)
+                    throw new ArgumentException("Номер має бути додатним.");
+                inventoryNumber = value;
+            }
+        }
+
+        public string AlbumTitle
+        {
+            get { return albumTitle; }
+            set
+            {
+                if (string.IsNullOrWhiteSpace(value) || value.Contains("|"))
+                    throw new ArgumentException("Некоректна назва альбому.");
+                albumTitle = value.Trim();
+            }
+        }
+
+        public double DiskSize
+        {
+            get { return diskSize; }
+            set
+            {
+                if (value <= 0 || double.IsNaN(value) ||
+                    double.IsInfinity(value))
+                    throw new ArgumentException("Об'єм має бути додатним.");
+                diskSize = value;
+            }
+        }
+
+        public string DiskType
+        {
+            get { return diskType; }
+            set
+            {
+                if (string.IsNullOrWhiteSpace(value) || value.Contains("|"))
+                    throw new ArgumentException("Некоректний тип диска.");
+                diskType = value.Trim();
+            }
+        }
+
+        public DateTime RecordingDate
+        {
+            get { return recordingDate; }
+            set { recordingDate = value; }
+        }
+
+        public CompactDisc()
+            : this(1, "Невідомий альбом", 0.7,
+                   "Audio CD", DateTime.Today)
+        { }
+
+        public CompactDisc(int number, string title, double size,
+                           string type, DateTime date)
+        {
+            InventoryNumber = number;
+            AlbumTitle = title;
+            DiskSize = size;
+            DiskType = type;
+            RecordingDate = date;
+        }
+    }
+
+    class Program
+    {
+        static readonly string FilePath =
+            Path.Combine(Directory.GetCurrentDirectory(), "disks.txt");
+
+        static List<CompactDisc> discs = new List<CompactDisc>();
+
+        static List<CompactDisc> CreateDefaultData()
+        {
+            return new List<CompactDisc>
+            {
+                new CompactDisc(1, "Master of Puppets", 0.7,
+                    "Audio CD", new DateTime(1986, 3, 3)),
+                new CompactDisc(2, "Reign in Blood", 0.7,
+                    "Audio CD", new DateTime(1986, 10, 7)),
+                new CompactDisc(3, "The Sound of Perseverance", 0.7,
+                    "Audio CD", new DateTime(1998, 8, 31)),
+                new CompactDisc(4, "Storm of the Light's Bane", 0.7,
+                    "Audio CD", new DateTime(1995, 11, 17)),
+                new CompactDisc(5, "Blackwater Park", 0.7,
+                    "Audio CD", new DateTime(2001, 2, 27)),
+                new CompactDisc(6, "Individual Thought Patterns", 0.7,
+                    "Audio CD", new DateTime(1993, 6, 22)),
+                new CompactDisc(7, "Symbolic", 0.7,
+                    "Audio CD", new DateTime(1995, 3, 21)),
+                new CompactDisc(8, "Heartwork", 0.7,
+                    "Audio CD", new DateTime(1993, 10, 18)),
+                new CompactDisc(9, "Left Hand Path", 0.7,
+                    "Audio CD", new DateTime(1990, 6, 4)),
+                new CompactDisc(10, "Roots of Blood", 0.7,
+                    "Audio CD", new DateTime(2016, 12, 20))
+            };
+        }
+
+        // Введення та перевірка даних
+        static string ReadText(string message)
+        {
+            while (true)
+            {
+                Console.Write(message);
+                string value = Console.ReadLine() ?? "";
+
+                if (!string.IsNullOrWhiteSpace(value) &&
+                    !value.Contains("|"))
+                    return value.Trim();
+
+                Console.WriteLine("Помилка! Поле порожнє або містить |.");
+            }
+        }
+
+        static int ReadPositiveInt(string message)
+        {
+            while (true)
+            {
+                Console.Write(message);
+
+                if (int.TryParse(Console.ReadLine(), out int number)
+                    && number > 0)
+                    return number;
+
+                Console.WriteLine("Помилка! Введіть додатне ціле число.");
+            }
+        }
+
+        static double ReadSize()
+        {
+            while (true)
+            {
+                Console.Write("Об'єм диска (ГБ): ");
+                string input = (Console.ReadLine() ?? "").Replace(',', '.');
+
+                if (double.TryParse(input, NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out double size)
+                    && size > 0 && !double.IsInfinity(size))
+                    return size;
+
+                Console.WriteLine("Помилка! Приклад правильного числа: 0.7.");
+            }
+        }
+
+        static DateTime ReadDate()
+        {
+            while (true)
+            {
+                Console.Write("Дата запису (РРРР-ММ-ДД): ");
+
+                if (DateTime.TryParseExact(Console.ReadLine(),
+                    "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                    DateTimeStyles.None, out DateTime date))
+                    return date;
+
+                Console.WriteLine("Приклад правильної дати: 2025-06-15.");
+            }
+        }
+
+        // Завантаження та збереження бази даних
+        static void LoadData()
+        {
+            if (!File.Exists(FilePath))
+            {
+                discs = CreateDefaultData();
+                SaveData();
+                return;
+            }
+
+            List<CompactDisc> loaded = new List<CompactDisc>();
+
+            foreach (string line in File.ReadAllLines(FilePath))
+            {
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+
+                string[] p = line.Split('|');
+
+                if (p.Length != 5)
+                    throw new FormatException("Неправильний формат файлу.");
+
+                loaded.Add(new CompactDisc(
+                    int.Parse(p[0]),
+                    p[1],
+                    double.Parse(p[2], CultureInfo.InvariantCulture),
+                    p[3],
+                    DateTime.ParseExact(p[4], "yyyy-MM-dd",
+                        CultureInfo.InvariantCulture)));
+            }
+
+            if (loaded.Select(d => d.InventoryNumber).Distinct().Count()
+                != loaded.Count)
+                throw new FormatException("Є повторювані інвентарні номери.");
+
+            discs = loaded;
+        }
+
+        static void SaveData()
+        {
+            File.WriteAllLines(FilePath, discs.Select(d =>
+                $"{d.InventoryNumber}|{d.AlbumTitle}|" +
+                $"{d.DiskSize.ToString(CultureInfo.InvariantCulture)}|" +
+                $"{d.DiskType}|{d.RecordingDate:yyyy-MM-dd}"),
+                Encoding.UTF8);
+        }
+
+        // Виведення таблиці
+        static void ShowRecords(List<CompactDisc> records)
+        {
+            if (records.Count == 0)
+            {
+                Console.WriteLine("Записів не знайдено.");
+                return;
+            }
+
+            Console.WriteLine("\n=== КОЛЕКЦІЯ КОМПАКТ-ДИСКІВ ===");
+            Console.WriteLine(new string('-', 90));
+
+            Console.WriteLine(
+                "{0,4} | {1,-30} | {2,10} | {3,-12} | {4,-12}",
+                "№", "Назва альбому", "Об'єм (ГБ)", "Тип", "Дата запису");
+
+            Console.WriteLine(new string('-', 90));
+
+            foreach (CompactDisc d in records)
+                Console.WriteLine(
+                    "{0,4} | {1,-30} | {2,10:F2} | {3,-12} | {4,-12:yyyy-MM-dd}",
+                    d.InventoryNumber, d.AlbumTitle, d.DiskSize,
+                    d.DiskType, d.RecordingDate);
+
+            Console.WriteLine(new string('-', 90));
+            Console.WriteLine($"Усього записів: {records.Count}");
+        }
+
+        static void ShowAll()
+        {
+            ShowRecords(discs);
+        }
+
+        // Додавання диска
+        static void AddDisc()
+        {
+            Console.WriteLine("\n=== ДОДАВАННЯ ДИСКА ===");
+
+            int number = ReadPositiveInt("Інвентарний номер: ");
+
+            if (discs.Any(d => d.InventoryNumber == number))
+            {
+                Console.WriteLine("Такий номер уже існує.");
+                return;
+            }
+
+            CompactDisc disc = new CompactDisc(
+                number,
+                ReadText("Назва альбому: "),
+                ReadSize(),
+                ReadText("Тип диска: "),
+                ReadDate());
+
+            discs.Add(disc);
+            SaveData();
+            Console.WriteLine("Запис успішно додано.");
+        }
+
+        // Редагування диска
+        static void EditDisc()
+        {
+            Console.WriteLine("\n=== РЕДАГУВАННЯ ДИСКА ===");
+
+            int number = ReadPositiveInt("Інвентарний номер: ");
+            CompactDisc d = discs.FirstOrDefault(
+                x => x.InventoryNumber == number);
+
+            if (d == null)
+            {
+                Console.WriteLine("Запис не знайдено.");
+                return;
+            }
+
+            Console.WriteLine("Enter — залишити поле без змін.");
+
+            Console.Write($"Нова назва [{d.AlbumTitle}]: ");
+            string title = Console.ReadLine() ?? "";
+
+            Console.Write($"Новий об'єм [{d.DiskSize}]: ");
+            string sizeText = Console.ReadLine() ?? "";
+
+            Console.Write($"Новий тип [{d.DiskType}]: ");
+            string type = Console.ReadLine() ?? "";
+
+            Console.Write($"Нова дата [{d.RecordingDate:yyyy-MM-dd}]: ");
+            string dateText = Console.ReadLine() ?? "";
+
+            // Спочатку перевіряємо всі нові значення
+            string newTitle = string.IsNullOrWhiteSpace(title)
+                ? d.AlbumTitle : title.Trim();
+
+            double newSize = d.DiskSize;
+            if (!string.IsNullOrWhiteSpace(sizeText))
+            {
+                string input = sizeText.Replace(',', '.');
+
+                if (!double.TryParse(input, NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out newSize) ||
+                    newSize <= 0 || double.IsInfinity(newSize) ||
+                    double.IsNaN(newSize))
+                    throw new FormatException("Некоректний об'єм.");
+            }
+
+            string newType = string.IsNullOrWhiteSpace(type)
+                ? d.DiskType : type.Trim();
+
+            DateTime newDate = d.RecordingDate;
+            if (!string.IsNullOrWhiteSpace(dateText) &&
+                !DateTime.TryParseExact(dateText, "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture, DateTimeStyles.None,
+                    out newDate))
+                throw new FormatException("Некоректна дата.");
+
+            // Застосовуємо зміни після перевірки
+            d.AlbumTitle = newTitle;
+            d.DiskSize = newSize;
+            d.DiskType = newType;
+            d.RecordingDate = newDate;
+
+            SaveData();
+            Console.WriteLine("Запис успішно відредаговано.");
+        }
+
+        // Видалення диска
+        static void DeleteDisc()
+        {
+            int number = ReadPositiveInt("Інвентарний номер: ");
+            CompactDisc d = discs.FirstOrDefault(
+                x => x.InventoryNumber == number);
+
+            if (d == null)
+            {
+                Console.WriteLine("Запис не знайдено.");
+                return;
+            }
+
+            Console.Write($"Видалити \"{d.AlbumTitle}\"? (т/н): ");
+            string answer = Console.ReadLine() ?? "";
+
+            if (answer.Equals("т", StringComparison.OrdinalIgnoreCase) ||
+                answer.Equals("y", StringComparison.OrdinalIgnoreCase))
+            {
+                discs.Remove(d);
+                SaveData();
+                Console.WriteLine("Запис видалено.");
+            }
+            else
+                Console.WriteLine("Видалення скасовано.");
+        }
+
+        // Пошук альбому
+        static void SearchDisc()
+        {
+            string title = ReadText("Введіть назву альбому або її частину: ");
+
+            ShowRecords(discs.Where(d =>
+                d.AlbumTitle.IndexOf(title,
+                    StringComparison.OrdinalIgnoreCase) >= 0).ToList());
+        }
+
+        // Сортування
+        static void SortDiscs()
+        {
+            Console.WriteLine("\n=== СОРТУВАННЯ ===");
+            Console.WriteLine("1 - За датою запису");
+            Console.WriteLine("2 - За назвою альбому");
+            Console.WriteLine("3 - За інвентарним номером");
+            Console.WriteLine("4 - За об'ємом диска");
+            Console.WriteLine("5 - За типом диска");
+            Console.Write("Ваш вибір: ");
+
+            switch (Console.ReadLine())
+            {
+                case "1":
+                    discs = discs.OrderBy(d => d.RecordingDate).ToList();
+                    break;
+                case "2":
+                    discs = discs.OrderBy(d => d.AlbumTitle,
+                        StringComparer.OrdinalIgnoreCase).ToList();
+                    break;
+                case "3":
+                    discs = discs.OrderBy(d => d.InventoryNumber).ToList();
+                    break;
+                case "4":
+                    discs = discs.OrderBy(d => d.DiskSize).ToList();
+                    break;
+                case "5":
+                    discs = discs.OrderBy(d => d.DiskType,
+                        StringComparer.OrdinalIgnoreCase).ToList();
+                    break;
+                default:
+                    Console.WriteLine("Неправильний вибір.");
+                    return;
+            }
+
+            SaveData();
+            ShowAll();
+        }
+
+        // Головне меню
+        static void Main(string[] args)
+        {
+            Console.OutputEncoding = Encoding.UTF8;
+            Console.InputEncoding = Encoding.UTF8;
+
+            try
+            {
+                LoadData();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Помилка завантаження бази: " + ex.Message);
+                Console.ReadLine();
+                return;
+            }
+
+            bool running = true;
+
+            while (running)
+            {
+                Console.WriteLine("\n========================================");
+                Console.WriteLine("       КОЛЕКЦІЯ КОМПАКТ-ДИСКІВ");
+                Console.WriteLine("========================================");
+                Console.WriteLine("I - Інформація про всі диски");
+                Console.WriteLine("D - Додати запис");
+                Console.WriteLine("R - Редагувати запис");
+                Console.WriteLine("V - Видалити запис");
+                Console.WriteLine("P - Пошук за назвою альбому");
+                Console.WriteLine("S - Сортування");
+                Console.WriteLine("Enter - Вихід");
+                Console.WriteLine("========================================");
+                Console.Write("Натисніть потрібну клавішу: ");
+
+                ConsoleKey key = Console.ReadKey(true).Key;
+                Console.WriteLine();
+
+                try
+                {
+                    switch (key)
+                    {
+                        case ConsoleKey.I: ShowAll(); break;
+                        case ConsoleKey.D: AddDisc(); break;
+                        case ConsoleKey.R: EditDisc(); break;
+                        case ConsoleKey.V: DeleteDisc(); break;
+                        case ConsoleKey.P: SearchDisc(); break;
+                        case ConsoleKey.S: SortDiscs(); break;
+                        case ConsoleKey.Enter:
+                            running = false;
+                            Console.WriteLine("Програму завершено.");
+                            continue;
+                        default:
+                            Console.WriteLine("Невідома команда.");
+                            break;
+                    }
+                }
+                catch (FormatException ex)
+                {
+                    Console.WriteLine("Помилка формату: " + ex.Message);
+                }
+                catch (ArgumentException ex)
+                {
+                    Console.WriteLine("Помилка введення: " + ex.Message);
+                }
+                catch (IOException ex)
+                {
+                    Console.WriteLine("Помилка роботи з файлом: " + ex.Message);
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    Console.WriteLine("Немає дозволу на роботу з файлом.");
+                }
+
+                if (running)
+                {
+                    Console.WriteLine("\nНатисніть будь-яку клавішу для продовження...");
+                    Console.ReadKey(true);
+                }
+            }
+        }
+    }
+}
